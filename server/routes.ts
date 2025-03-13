@@ -8,8 +8,19 @@ import { Strategy as LocalStrategy } from "passport-local";
 import session from "express-session";
 import { randomUUID } from "crypto";
 import axios from "axios";
+import { startPythonServer, pythonApiProxy } from "./python-bridge";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Start the Python FastAPI server
+  try {
+    await startPythonServer();
+    console.log("Python FastAPI server started successfully");
+  } catch (error) {
+    console.error("Failed to start Python FastAPI server:", error);
+  }
+  
+  // Add proxy for Python API routes
+  app.use("/api/python", pythonApiProxy);
   // Set up session middleware
   const sessionMiddleware = session({
     secret: process.env.SESSION_SECRET || "finance-ai-secret",
@@ -202,11 +213,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         metadata: {}
       });
 
-      // In a real implementation, this would call the Python backend
+      // Call the Python backend for AI response
       try {
-        // This would be a real call to your Python backend
-        // For now we'll simulate a response with a slight delay
-        const aiResponse = await simulateAIResponse(message, userId);
+        // Make API call to Python backend
+        const response = await axios.post(`http://localhost:5000/chat/query`, {
+          message: message
+        }, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer temp-token-${userId}` // Simplified for demo
+          }
+        });
+        
+        const aiResponse = response.data.response;
         
         // Save AI response
         await storage.createChatMessage({
