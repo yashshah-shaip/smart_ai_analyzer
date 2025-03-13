@@ -1,5 +1,11 @@
 import { apiRequest } from "./queryClient";
-import { ChatResponse } from "./types";
+import { 
+  ChatResponse, 
+  AIAdvisorState, 
+  MarketState, 
+  FinancialNewsState,
+  FinancialNewsItem
+} from "./types";
 import { 
   FinancialProfile, 
   DocumentUpload,
@@ -31,7 +37,7 @@ export async function getAuthStatus() {
 export async function getFinancialData() {
   // Try to get data from Express server first
   try {
-    return apiRequest("GET", "/api/financial-data", undefined);
+    return await apiRequest("GET", "/api/financial-data", undefined);
   } catch (error) {
     // Fallback to direct Python API if Express route fails
     const response = await fetch('http://localhost:5000/finance/data', {
@@ -45,7 +51,8 @@ export async function getFinancialData() {
       throw new Error(`Error: ${response.status}`);
     }
     
-    return response;
+    const data = await response.json();
+    return data; // Return the parsed JSON data
   }
 }
 
@@ -56,11 +63,15 @@ export async function submitFinancialProfile(profile: FinancialProfile) {
 
 // Chat
 export async function getChatHistory() {
-  return apiRequest("GET", "/api/chat/history", undefined);
+  const response = await apiRequest("GET", "/api/chat/history", undefined);
+  return Array.isArray(response) ? response : [];
 }
 
 export async function sendChatMessage(message: string): Promise<ChatResponse> {
-  return apiRequest("POST", "/api/chat/query", { message });
+  const response = await apiRequest("POST", "/api/chat/query", { message });
+  return {
+    response: response.response || "Sorry, I couldn't process your message."
+  };
 }
 
 // Document methods
@@ -146,15 +157,34 @@ export async function updateProfile(profile: ProfileUpdate) {
 }
 
 // AI Advisor methods
-export async function getAIInsights() {
-  return apiRequest("GET", "/api/ai-advisor/insights", undefined);
+export async function getAIInsights(): Promise<AIAdvisorState> {
+  const response = await apiRequest("GET", "/api/ai-advisor/insights", undefined);
+  // Transform API response into expected format
+  return {
+    insights: response.insights || [],
+    recommendations: response.recommendations || [],
+    isLoading: false,
+    error: null
+  };
 }
 
 // Financial News and Market Data
-export async function getFinancialNews(query?: string) {
-  return apiRequest("GET", `/api/financial-news${query ? `?query=${encodeURIComponent(query)}` : ''}`, undefined);
+export async function getFinancialNews(query?: string): Promise<FinancialNewsState> {
+  const response = await apiRequest("GET", `/api/financial-news${query ? `?query=${encodeURIComponent(query)}` : ''}`, undefined);
+  // Transform API response into expected format
+  return {
+    news: response.news || [],
+    isLoading: false,
+    error: null
+  };
 }
 
-export async function getMarketSummary() {
-  return apiRequest("GET", "/api/market-summary", undefined);
+export async function getMarketSummary(): Promise<MarketState> {
+  const response = await apiRequest("GET", "/api/market-summary", undefined);
+  // Transform API response into expected format
+  return {
+    summary: response, // Assuming the response is the market summary object
+    isLoading: false,
+    error: null
+  };
 }

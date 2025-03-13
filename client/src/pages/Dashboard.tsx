@@ -12,7 +12,7 @@ import {
   getMarketSummary, 
   getFinancialNews 
 } from "@/lib/api";
-import { AIAdvisorState, MarketState, FinancialNewsState } from "@/lib/types";
+import { AIAdvisorState, MarketState, FinancialNewsState, AIInsight, FinancialNewsItem } from "@/lib/types";
 
 export default function Dashboard() {
   const [pythonData, setPythonData] = useState<any>(null);
@@ -26,31 +26,43 @@ export default function Dashboard() {
     enabled: true,  // Always try Express API first
   });
 
-  // Chat history query
+  // Chat history query  
   const { data: chatHistory, isLoading: isLoadingChat } = useQuery({
     queryKey: ["/api/chat/history"],
     queryFn: getChatHistory,
   });
   
-  // AI insights query
-  const { data: aiInsights, isLoading: isLoadingInsights } = useQuery<AIAdvisorState>({
+  // AI insights query - we wrap this in a try-catch because it's a new feature
+  const { 
+    data: aiInsights = { insights: [], recommendations: [], isLoading: false, error: null }, 
+    isLoading: isLoadingInsights 
+  } = useQuery<AIAdvisorState>({
     queryKey: ["/api/ai-advisor/insights"],
     queryFn: getAIInsights,
     enabled: true,
+    retry: false
   });
   
   // Market summary query
-  const { data: marketSummary, isLoading: isLoadingMarket } = useQuery<MarketState>({
+  const { 
+    data: marketSummary = { summary: null, isLoading: false, error: null }, 
+    isLoading: isLoadingMarket 
+  } = useQuery<MarketState>({
     queryKey: ["/api/market-summary"],
     queryFn: getMarketSummary,
     enabled: true,
+    retry: false,
   });
   
   // Financial news query
-  const { data: financialNews, isLoading: isLoadingNews } = useQuery<FinancialNewsState>({
+  const { 
+    data: financialNews = { news: [], isLoading: false, error: null }, 
+    isLoading: isLoadingNews 
+  } = useQuery<FinancialNewsState>({
     queryKey: ["/api/financial-news"],
     queryFn: () => getFinancialNews(),
     enabled: true,
+    retry: false,
   });
 
   // Fallback to direct Python API if Express fails
@@ -179,7 +191,7 @@ export default function Dashboard() {
             </div>
             
             {/* AI Advisor Insights */}
-            {aiInsights && (
+            {aiInsights && aiInsights.insights && aiInsights.insights.length > 0 && (
               <div className="bg-white rounded-lg shadow-sm p-4">
                 <div className="flex items-center mb-3">
                   <div className="p-2 bg-indigo-100 rounded-full mr-2">
@@ -192,13 +204,14 @@ export default function Dashboard() {
                 </div>
                 
                 <div className="space-y-3">
-                  {aiInsights.insights && aiInsights.insights.slice(0, 2).map((insight, idx) => (
+                  {aiInsights.insights.slice(0, 2).map((insight: string, idx: number) => (
                     <div key={idx} className="p-3 bg-gray-50 rounded">
                       <p className="text-sm">{insight}</p>
                     </div>
                   ))}
                   
-                  {aiInsights.recommendations && aiInsights.recommendations.slice(0, 1).map((rec, idx) => (
+                  {aiInsights.recommendations && aiInsights.recommendations.length > 0 && 
+                    aiInsights.recommendations.slice(0, 1).map((rec: AIInsight, idx: number) => (
                     <div key={idx} className="p-3 border border-indigo-100 rounded bg-indigo-50">
                       <div className="flex justify-between items-start">
                         <span className="font-medium text-sm">{rec.category}: {rec.action}</span>
@@ -226,7 +239,7 @@ export default function Dashboard() {
             </div>
             
             {/* Financial News */}
-            {financialNews && financialNews.news && (
+            {financialNews && financialNews.news && financialNews.news.length > 0 && (
               <div className="bg-white rounded-lg shadow-sm p-4">
                 <div className="flex items-center justify-between mb-3">
                   <h2 className="text-lg font-semibold">Financial News</h2>
@@ -234,7 +247,7 @@ export default function Dashboard() {
                 </div>
                 
                 <div className="divide-y">
-                  {financialNews.news.slice(0, 3).map((item, idx) => (
+                  {financialNews.news.slice(0, 3).map((item: FinancialNewsItem, idx: number) => (
                     <div key={idx} className="py-3">
                       <h3 className="font-medium text-sm mb-1">{item.title}</h3>
                       <p className="text-xs text-gray-600 mb-2">{item.summary}</p>
