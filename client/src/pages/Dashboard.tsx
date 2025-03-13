@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Sidebar from "@/components/Sidebar";
 import TopBar from "@/components/TopBar";
@@ -7,15 +7,52 @@ import FinancialDashboard from "@/components/FinancialDashboard";
 import { FinancialData } from "@shared/schema";
 
 export default function Dashboard() {
+  const [pythonData, setPythonData] = useState<any>(null);
+  const [isLoadingPythonData, setIsLoadingPythonData] = useState(true);
+  const [pythonDataError, setPythonDataError] = useState<Error | null>(null);
+
+  // Fetch from Express API first
   const { data: financialData, isLoading, error } = useQuery<FinancialData>({
     queryKey: ["/api/financial-data"],
+    enabled: true,  // Always try Express API first
   });
 
   const { data: chatHistory, isLoading: isLoadingChat } = useQuery({
     queryKey: ["/api/chat/history"],
   });
 
-  if (isLoading) {
+  // Fallback to direct Python API if Express fails
+  useEffect(() => {
+    if (!isLoading && !financialData) {
+      setIsLoadingPythonData(true);
+      
+      fetch('http://localhost:5000/finance/data')
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`Failed to fetch data: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(data => {
+          setPythonData(data);
+          setIsLoadingPythonData(false);
+        })
+        .catch(err => {
+          console.error("Error fetching from Python API:", err);
+          setPythonDataError(err);
+          setIsLoadingPythonData(false);
+        });
+    } else if (financialData) {
+      setIsLoadingPythonData(false);
+    }
+  }, [isLoading, financialData]);
+
+  // Determine what data to show
+  const effectiveFinancialData = financialData || pythonData;
+  const effectiveIsLoading = isLoading || isLoadingPythonData;
+  const effectiveError = error || pythonDataError;
+
+  if (effectiveIsLoading) {
     return (
       <div className="h-screen w-full flex items-center justify-center">
         <div className="text-center">
@@ -26,7 +63,7 @@ export default function Dashboard() {
     );
   }
 
-  if (error) {
+  if (effectiveError && !effectiveFinancialData) {
     return (
       <div className="h-screen w-full flex items-center justify-center">
         <div className="text-center max-w-md">
@@ -56,7 +93,7 @@ export default function Dashboard() {
           />
 
           {/* Financial Dashboard Panel */}
-          <FinancialDashboard financialData={financialData} />
+          <FinancialDashboard financialData={effectiveFinancialData} />
         </main>
       </div>
     </div>

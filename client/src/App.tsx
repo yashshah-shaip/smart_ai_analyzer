@@ -9,6 +9,69 @@ import Login from "@/pages/Login";
 import { useEffect, useState } from "react";
 import { apiRequest } from "./lib/queryClient";
 
+// API Health Check component to ensure both servers are running and accessible
+function ApiHealthCheck() {
+  const [pythonApiStatus, setPythonApiStatus] = useState<'loading' | 'up' | 'down'>('loading');
+  const [expressApiStatus, setExpressApiStatus] = useState<'loading' | 'up' | 'down'>('loading');
+
+  useEffect(() => {
+    // Check Python API
+    fetch('http://localhost:5000/health')
+      .then(response => {
+        if (response.ok) {
+          setPythonApiStatus('up');
+        } else {
+          setPythonApiStatus('down');
+        }
+      })
+      .catch(() => setPythonApiStatus('down'));
+
+    // Check Express API
+    fetch('/api/auth/status')
+      .then(response => {
+        if (response.ok) {
+          setExpressApiStatus('up');
+        } else {
+          setExpressApiStatus('down');
+        }
+      })
+      .catch(() => setExpressApiStatus('down'));
+  }, []);
+
+  // Only show if there are issues
+  if (pythonApiStatus === 'up' && expressApiStatus === 'up') {
+    return null;
+  }
+
+  return (
+    <div className="fixed bottom-4 right-4 p-4 bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-w-xs">
+      <h3 className="font-semibold mb-2">API Status</h3>
+      <div className="text-sm space-y-1">
+        <div className="flex items-center">
+          <span className="mr-2">Python API:</span>
+          {pythonApiStatus === 'loading' ? (
+            <span className="text-yellow-500">Checking...</span>
+          ) : pythonApiStatus === 'up' ? (
+            <span className="text-green-500">Connected</span>
+          ) : (
+            <span className="text-red-500">Not Available</span>
+          )}
+        </div>
+        <div className="flex items-center">
+          <span className="mr-2">Express API:</span>
+          {expressApiStatus === 'loading' ? (
+            <span className="text-yellow-500">Checking...</span>
+          ) : expressApiStatus === 'up' ? (
+            <span className="text-green-500">Connected</span>
+          ) : (
+            <span className="text-red-500">Not Available</span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Router() {
   const [location, setLocation] = useLocation();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
@@ -72,6 +135,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <Router />
+      <ApiHealthCheck />
       <Toaster />
     </QueryClientProvider>
   );

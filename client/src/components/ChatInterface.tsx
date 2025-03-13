@@ -23,7 +23,19 @@ export default function ChatInterface({ initialMessages, isLoading }: ChatInterf
 
   const chatMutation = useMutation({
     mutationFn: async (message: string) => {
-      const response = await apiRequest("POST", "/api/chat/query", { message });
+      // Use direct Python API endpoint instead of Express proxy
+      const response = await fetch('http://localhost:5000/chat/query', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status}`);
+      }
+      
       return response.json();
     },
     onMutate: async (message) => {
